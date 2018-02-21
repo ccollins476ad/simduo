@@ -31,11 +31,12 @@ static const union mn_socket_cb simduo_listen_socket_cbs = {
 };
 
 static bool simduo_server;
-static const char *simduo_sock_path = "/tmp/simduo.sock";
+static char *simduo_server_addr_str = "127.0.0.1";
+static const uint16_t simduo_server_port = 9919;
 
 struct mn_socket *simduo_socket;
 struct mn_socket *simduo_listen_socket;
-static struct mn_sockaddr_un simduo_server_addr;
+static struct mn_sockaddr_in simduo_server_sin;
 
 static struct os_task simduo_task;
 static os_stack_t simduo_stack[SIMDUO_STACK_SIZE];
@@ -81,11 +82,16 @@ simduo_process_tx(struct os_mbuf *om)
 {
     int rc;
 
+    // XXX: MUTEX
+    if (simduo_socket == NULL) {
+        return SYS_ENODEV;
+    }
+
     SIMDUO_LOG(DEBUG, "Sending %d bytes\n", OS_MBUF_PKTLEN(om));
 
     simduo_log_mbuf(om);
-    rc = mn_sendto(simduo_socket, om,
-                   (struct mn_sockaddr *)&simduo_server_addr);
+    rc = native_sock_sendto(simduo_socket, om,
+                            (struct mn_sockaddr *)&simduo_server_sin);
     return rc;
 }
 
@@ -107,8 +113,7 @@ simduo_process_tx_mq(struct os_event *ev)
             OS_EXIT_CRITICAL(sr);
             break;
         } else if (rc != 0) {
-            SIMDUO_LOG(INFO, "mn_sendto() failed; rc=%d\n", rc);
-            assert(0);
+            SIMDUO_LOG(INFO, "native_sock_sendto() failed; rc=%d\n", rc);
             break;
         }
     }
@@ -226,7 +231,7 @@ simduo_socket_readable(void *unused, int err)
         assert(0);
     }
 
-    rc = mn_recvfrom(simduo_socket, &om, (void *)&from_addr);
+    rc = native_sock_recvfrom(simduo_socket, &om, (void *)&from_addr);
     if (rc != 0) {
         return;
     }
@@ -258,18 +263,19 @@ simduo_socket_writable(void *unused, int err)
 }
 
 static int
-simduo_fill_addr(struct mn_sockaddr_un *addr, const char *filename)
+simduo_fill_addr(struct mn_sockaddr_in *sin, const char *addr_str,
+                 uint16_t port)
 {
-    size_t name_len;
+    int rc;
 
-    name_len = strlen(filename);
-    if (name_len + 1 > sizeof addr->msun_path) {
-        return -1;
+    rc = mn_inet_pton(MN_PF_INET, addr_str, &sin->msin_addr);
+    if (rc == 0) {
+        return SYS_EINVAL;
     }
 
-    addr->msun_len = sizeof *addr;
-    addr->msun_family = MN_AF_LOCAL;
-    memcpy(addr->msun_path, filename, name_len + 1);
+    sin->msin_len = sizeof *sin;
+    sin->msin_family = MN_AF_INET;
+    sin->msin_port = htons(port);
 
     return 0;
 }
@@ -279,12 +285,13 @@ simduo_init_socket(void)
 {
     int rc;
 
-    rc = simduo_fill_addr(&simduo_server_addr, simduo_sock_path);
+    rc = simduo_fill_addr(&simduo_server_sin, simduo_server_addr_str,
+                          simduo_server_port);
     if (rc != 0) {
         return rc;
     }
 
-    rc = mn_socket(&simduo_socket, MN_PF_LOCAL, SOCK_STREAM, 0);
+    rc = native_sock_create(&simduo_socket, MN_PF_INET, SOCK_STREAM, 0);
     if (rc != 0) {
         return rc;
     }
@@ -308,13 +315,14 @@ simduo_init_listen_socket(void)
 {
     int rc;
 
-    remove(simduo_sock_path);
-    rc = simduo_fill_addr(&simduo_server_addr, simduo_sock_path);
+    rc = simduo_fill_addr(&simduo_server_sin, simduo_server_addr_str,
+                          simduo_server_port);
     if (rc != 0) {
         return rc;
     }
 
-    rc = mn_socket(&simduo_listen_socket, MN_PF_LOCAL, SOCK_STREAM, 0);
+    rc = native_sock_create(&simduo_listen_socket, MN_PF_INET,
+                            SOCK_STREAM, 0);
     if (rc != 0) {
         return rc;
     }
@@ -334,8 +342,8 @@ simduo_connect_client(void)
         return rc;
     }
 
-    rc = mn_connect(simduo_socket,
-                    (struct mn_sockaddr *)&simduo_server_addr);
+    rc = native_sock_connect(simduo_socket,
+                             (struct mn_sockaddr *)&simduo_server_sin);
     if (rc != 0) {
         return rc;
     }
@@ -353,13 +361,13 @@ simduo_connect_server(void)
         return rc;
     }
 
-    rc = mn_bind(simduo_listen_socket,
-                 (struct mn_sockaddr *)&simduo_server_addr);
+    rc = native_sock_bind(simduo_listen_socket,
+                 (struct mn_sockaddr *)&simduo_server_sin);
     if (rc != 0) {
         return rc;
     }
 
-    rc = mn_listen(simduo_listen_socket, 1);
+    rc = native_sock_listen(simduo_listen_socket, 1);
     if (rc != 0) {
         return rc;
     }

@@ -10,6 +10,7 @@
 typedef void simduo_rx_fn(cJSON *map, void *arg);
 
 void simduo_set_server(bool server);
+int simduo_rx_dispatch_add(const char *proto, simduo_rx_fn *cb, void *arg);
 int simduo_tx(cJSON *map);
 
 #endif
