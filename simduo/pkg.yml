@@ -28,3 +28,6 @@ pkg.keywords:
 pkg.deps:
     - "@apache-mynewt-core/kernel/os"
     - "@simduo/encoding/cjson"
+
+pkg.init:
+    simduo_init: 300

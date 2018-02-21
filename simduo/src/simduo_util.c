@@ -1,3 +1,8 @@
+#include <stdlib.h>
+#include <assert.h>
+#include "cjson/cJSON.h"
+#include "defs/error.h"
+
 int
 simduo_get_string(cJSON *parent, const char *key, char **out_value)
 {
@@ -14,4 +19,15 @@ simduo_get_string(cJSON *parent, const char *key, char **out_value)
 
     *out_value = item->valuestring;
     return 0;
+}
+
+void *
+malloc_success(size_t num_bytes)
+{
+    void *v;
+
+    v = malloc(num_bytes);
+    assert(v != NULL && "malloc returned null");
+
+    return v;
 }

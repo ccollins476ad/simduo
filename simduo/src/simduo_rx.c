@@ -1,7 +1,9 @@
 #include <stddef.h>
 #include <string.h>
 #include "cjson/cJSON.h"
+#include "defs/error.h"
 #include "simduo/simduo.h"
+#include "simduo_priv.h"
 
 #define SIMDUO_RX_MAX_PROTOS    16
 
@@ -29,6 +31,8 @@ simduo_rx_dispatch_add(const char *proto, simduo_rx_fn *cb, void *arg)
     entry->proto = proto;
     entry->cb = cb;
     entry->arg = arg;
+
+    return 0;
 }
 
 const struct simduo_rx_dispatch_entry *

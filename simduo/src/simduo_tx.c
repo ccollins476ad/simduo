@@ -1,10 +1,30 @@
 #include <assert.h>
+#include <string.h>
 #include <unistd.h>
+#include "cjson/cJSON.h"
+#include "defs/error.h"
 #include "os/os.h"
+#include "simduo/simduo.h"
+#include "simduo_priv.h"
 
-static int
-simduo_tx_raw(cJSON *map)
+static uint32_t simduo_tx_seq;
+
+int
+simduo_tx(cJSON *map)
 {
+    struct os_mbuf *om;
+    uint16_t hdr;
+    size_t len;
+    char *text;
+    int rc;
+
+    om = NULL;
+
+    /* XXX: Add version info, etc. */
+
+    cJSON_AddItemToObject(map, "ver", cJSON_CreateNumber(SIMDUO_VERSION));
+    cJSON_AddItemToObject(map, "seq", cJSON_CreateNumber(simduo_tx_seq++));
+
     text = cJSON_Print(map);
     if (text == NULL) {
         rc = SYS_ENOMEM;
@@ -12,35 +32,36 @@ simduo_tx_raw(cJSON *map)
     }
 
     len = strlen(text);
-    rem_buf = sizeof simduo_tx_buf - simduo_tx_buf_sz;
-    if (len > rem_buf) {
+    if (len > SIMDUO_MAX_MSG_SZ) {
+        rc = SYS_EINVAL;
+        goto done;
+    }
+
+    om = os_msys_get_pkthdr(sizeof hdr + len, 0);
+    if (om == NULL) {
         rc = SYS_ENOMEM;
         goto done;
     }
 
-    memcpy(simduo_tx_buf, text, len);
-    simduo_tx_buf_sz += len;
+    hdr = htons(len);
+    rc = os_mbuf_append(om, &hdr, sizeof hdr);
+    if (rc != 0) {
+        rc = SYS_ENOMEM;
+        goto done;
+    }
 
-    simduo_tx_timer_exp();
+    rc = os_mbuf_append(om, text, len);
+    if (rc != 0) {
+        rc = SYS_ENOMEM;
+        goto done;
+    }
 
-    rc = 0;
+    rc = simduo_enqueue_tx(om);
+    om = NULL;
 
 done:
-    cJSON_free(text);
+    free(text);
     cJSON_Delete(map);
-    return rc;
-}
-
-int
-simduo_tx(cJSON *map, int8_t rssi)
-{
-    int rc;
-
-    /* XXX: Add version info, etc. */
-
-    simduo_lock();
-    rc = simduo_tx_raw(map);
-    simduo_unlock();
-
+    os_mbuf_free_chain(om);
     return rc;
 }
