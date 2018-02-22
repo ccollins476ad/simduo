@@ -11,7 +11,7 @@ static const char *sim_ucify_proto = "ucify";
 static void
 sim_ucify_rx(cJSON *map, void *arg)
 {
-
+    /* XXX: Pass packet up to layer 2.5. */
 }
 
 static int
