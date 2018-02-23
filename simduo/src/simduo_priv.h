@@ -13,7 +13,6 @@ void simduo_lock(void);
 void simduo_unlock(void);
 int simduo_write(struct os_mbuf *om);
 int simduo_rx(cJSON *map);
-int simduo_get_string(cJSON *parent, const char *key, char **out_value);
 int simduo_enqueue_tx(struct os_mbuf *om);
 void *malloc_success(size_t num_bytes);
 

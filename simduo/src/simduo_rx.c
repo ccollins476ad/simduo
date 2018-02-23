@@ -55,10 +55,10 @@ int
 simduo_rx(cJSON *map)
 {
     const struct simduo_rx_dispatch_entry *entry;
-    char *proto;
+    const char *proto;
     int rc;
 
-    rc = simduo_get_string(map, "protocol", &proto);
+    proto = simduo_get_string(map, "protocol", &rc);
     if (rc != 0) {
         return rc;
     }

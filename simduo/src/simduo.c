@@ -122,9 +122,12 @@ simduo_process_tx_mq(struct os_event *ev)
 static void
 simduo_process_rx(struct os_mbuf *om)
 {
+    cJSON *map;
     char *json;
     //int send_rsp;
     int rc;
+
+    map = NULL;
 
     json = malloc_success(OS_MBUF_PKTLEN(om) + 1);
 
@@ -138,15 +141,24 @@ simduo_process_rx(struct os_mbuf *om)
     json[OS_MBUF_PKTLEN(om)] = '\0';
     SIMDUO_LOG(DEBUG, "Received JSON request:\n%s\n", json);
 
+    map = cJSON_Parse(json);
+    if (map == NULL) {
+        /* Drop invalid packet. */
+        goto done;
+    }
+
+    simduo_rx(map);
+
     //send_rsp = bhd_req_dec(json, &rsp);
     //if (send_rsp) {
         //bhd_rsp_send(&rsp);
     //}
 
-    cJSON *tmp = cJSON_CreateObject();
-    simduo_tx(tmp);
+    //cJSON *tmp = cJSON_CreateObject();
+    //simduo_tx(tmp);
 
 done:
+    cJSON_Delete(map);
     os_mbuf_free_chain(om);
     free(json);
 }

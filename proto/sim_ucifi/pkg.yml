@@ -17,7 +17,7 @@
 # under the License.
 #
 
-pkg.name: proto/sim_ucify
+pkg.name: proto/sim_ucifi
 pkg.description:
 pkg.author: "Apache Mynewt <dev@mynewt.apache.org>"
 pkg.homepage: "http://mynewt.apache.org/"
@@ -26,6 +26,7 @@ pkg.keywords:
 pkg.deps:
     - "@apache-mynewt-core/encoding/base64"
     - "@simduo/simduo"
+    - "@ucifi/net/dli"
 
 pkg.init:
-    sim_ucify_init: 301
+    sim_ucifi_init: 301
